@@ -19,6 +19,24 @@ int      g_lotdig;
 datetime g_lastBar = 0;
 
 //+------------------------------------------------------------------+
+//| Check if there is enough free margin for a trade                 |
+//+------------------------------------------------------------------+
+bool HasEnoughMargin(ENUM_ORDER_TYPE type, double lots)
+{
+   double price = (type == ORDER_TYPE_BUY) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
+                                           : SymbolInfoDouble(_Symbol, SYMBOL_BID);
+
+   double required_margin = 0.0;
+
+   if (!OrderCalcMargin(type, _Symbol, lots, price, required_margin))
+      return false;
+
+   double free_margin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+
+   return (free_margin >= required_margin);
+}
+
+//+------------------------------------------------------------------+
 int OnInit() {
    g_point = (Digits() == 3 || Digits() == 5) ? 10.0 * _Point : _Point;
 
@@ -96,11 +114,11 @@ void OnTick() {
    if (total == 0) {
       double lot = NormalizeDouble(First_lot, g_lotdig);
       if (prevClose < currClose) {
-         if (AccountFreeMarginCheck(_Symbol, ORDER_TYPE_BUY, lot) > 0)
+         if (HasEnoughMargin(ORDER_TYPE_BUY, lot))
             trade.Buy(lot, _Symbol, ask, 0, 0, OrderComment);
       }
       else if (prevClose > currClose) {
-         if (AccountFreeMarginCheck(_Symbol, ORDER_TYPE_SELL, lot) > 0)
+         if (HasEnoughMargin(ORDER_TYPE_SELL, lot))
             trade.Sell(lot, _Symbol, bid, 0, 0, OrderComment);
       }
       return;
@@ -115,13 +133,13 @@ void OnTick() {
 
    if (firstType == POSITION_TYPE_BUY && sells == 0) {
       if (refPrice <= lastPrice - step) {
-         if (AccountFreeMarginCheck(_Symbol, ORDER_TYPE_BUY, nextLot) > 0)
+         if (HasEnoughMargin(ORDER_TYPE_BUY, nextLot))
             trade.Buy(nextLot, _Symbol, ask, 0, 0, OrderComment);
       }
    }
    else if (firstType == POSITION_TYPE_SELL && buys == 0) {
       if (refPrice >= lastPrice + step) {
-         if (AccountFreeMarginCheck(_Symbol, ORDER_TYPE_SELL, nextLot) > 0)
+         if (HasEnoughMargin(ORDER_TYPE_SELL, nextLot))
             trade.Sell(nextLot, _Symbol, bid, 0, 0, OrderComment);
       }
    }
@@ -137,3 +155,4 @@ void CloseAll() {
       trade.PositionClose(ticket);
    }
 }
+//+------------------------------------------------------------------+
